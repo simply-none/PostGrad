@@ -1,6 +1,6 @@
 /**
  * 
- * 错题本 https://github.com/lydiahallie/javascript-questions/blob/master/zh-CN/README-zh_CN.md
+ * original_link: https://github.com/lydiahallie/javascript-questions/blob/master/zh-CN/README-zh_CN.md
  * first_end_time: 2020/06/08 00:03:42
  */
 
@@ -1112,6 +1112,18 @@ console.log(person, birthYear);
  *      使用场景：预设参数，之后可少传递几个参数
  *                配合定时器使用，显式绑定this
  *                通过Array.prototype.slice.bind(arguments)将类数组转为数组
+ *                每运行一次返回一个新函数：在监听事件时会产生一些问题
+ *                      ele.addEventListener('click', o.m.bind(o))：这里的监听函数生成的是一个匿名函数，此时无法取消监听
+ *                      正确使用：listener = o.m.bind(o); ele.addEventListener('click', listener)：这里listener只会运行一次
+ *                改写方法：(结合call使用)
+ *                      比如数组push方法：var push = Function.prototype.call.bind(Array.prototype.push); push(arr, ele)
+ *                                        1️⃣ Array.prototype.push.call(); push(arr, ele)
+ *                                        2️⃣ Array.prototype.push.call(arr, ele);
+ *                                        3️⃣ arr.push(ele)
+ *                      改写bind方法：var bind = Function.prototype.call.bind(Function.prototype.bind); bind(fn, binding_this_obj)
+ *                                        1️⃣ Function.prototype.bind.call(); bind(fn, binding_this_obj);
+ *                                        2️⃣ Function.prototype.bind.call(fn, binding_this_obj);
+ *                                        3️⃣ fn.bind(binding_this_obj);
  *                
  * 🎀apply：提供一个（类）数组，将其内部的元素作为参数列表，并调用这个给定this的函数（执行该函数）
  *      构造：function.apply(binding_this, args_array)
@@ -1120,6 +1132,8 @@ console.log(person, birthYear);
  *      使用场景：
  *            将一个数组添加到另一个数组：arr.push.apply(arr, push_arr);
  *            找出最大/小值：Math.max.apply(null, arr_list)
+ *            将数组的空元素变为undefined：在数组forEach方法中会跳过空元素，但不是跳过undefined
+ *            🥠类数组（含有length属性的对象）转为数组：使用原型链的slice方法
  *            
  * 🎀call：使用一个指定的this和多个参数来调用一个函数（执行该函数）
  *      构造：function.call(binding_this, arg1, arg2, ...)
@@ -1131,6 +1145,8 @@ console.log(person, birthYear);
  *            实现继承：super_fn.call(this, arg1, arg2...);
  *            调用匿名函数
  *            使用call但不指定参数，严格模式下this为undefined
+ * 
+ *      注：🍧🍧🍧bind，apply，call这三个函数：若参数的this值为undefined/null，或者参数为空，则指向全局对象window
  * 
  * 
  */
