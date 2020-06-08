@@ -203,15 +203,51 @@ sum = {
  *                Promise.reject(3).then(() => {}, () => {}) (resolved 的结果为undefined), Promise.reject(3).finally(() => {}) rejected 的结果为 3。
  * 
  * 
- * 当有多个异步，同步任务在多个函数中时
- * 1. 执行代码中的所有同步任务（promise中第一个参数回调也是同步任务）
+ * 🧊🧊🧊当有多个异步，同步任务在多个函数中时
+ * 1. 执行整体代码脚本（promise中第一个参数回调也是同步任务，因为promise的异步体现在它的方法then，catch等内部）
+ * 1.0：若promise回调resolve参数是一个thenable（1个微任务），是一个promise实例（2个微任务），就会跳出promise链
+ *      注: 🥂同步任务也是宏任务🔴，🌉同步任务都在主线程上执行，形成一个执行栈，其中遇到异步任务就放到不同的任务队列中等待】
+ *          🥂💥💥async/await本身是一个promise+generator的语法糖，【其中async函数返回一个promise】  ，await是一个让出线程的标志：
+ *                  💥：1️⃣：此时会将await所处的语句执行一遍
+ *                      2️⃣：💌然后将await语句后面的所有代码语句放到微任务队列中，跳出async函数执行后面的代码🔴
  *  1.1：Promise.resolve()是会返回一个值的（resolve状态）
  *  1.2：Promise的三种状态pending（待定的，pending），resolve（解决的，fulfilled），reject（拒绝的，rejected）
- * 2. 执行代码中所有的微任务（promise.then/catch/finally， process.nextTick（node中才有），MutationObserver（浏览器才有）
- * 3. 执行代码中所有的宏任务（定时器，I/O操作，setImmediate（node中才有），requestAnimationFrame（页面重绘前执行的操作，浏览器才有））
+ * 2. 执行代码中所有的微任务（promise.then/catch/finally， process.nextTick（node中才有），MutationObserver（浏览器才有）【微任务队列】
+ *        注：执行微任务时，也是执行整个微任务所属作用域的代码，先执行同步任务，然后判断异步任务并分类
+ * 3. 执行代码中所有的宏任务（定时器，I/O操作，UI交互事件，setImmediate（node中才有），postMessage、MessageChannel，requestAnimationFrame（页面重绘前执行的操作，浏览器才有），整体代码也属于一个宏任务✅）【任务队列】
+ *        注：执行宏任务时，也是执行整个宏任务所属作用域的代码，先执行同步任务，然后判断异步任务并分类
+ * 4. 反复重复1-3步骤（⭐此时步骤1的整体代码脚本广义上来说相当于属于宏任务作用域范围的代码
+ * 
+ *      注：🛑执行完一个宏任务之后，紧接着执行该宏任务里面的微任务，然后继续从任务队列中执行下一个宏任务
+ *                    执行过程中，遇到一个宏任务，就放在任务队列末尾，遇到一个微任务就放到属于该宏任务的微任务队列末尾
+ *                    微任务队列：不同的宏任务有不同的微任务队列，执行完宏任务之后立即执行它所属的微任务队列
+ * 
+ *      参考：https://github.com/Advanced-Frontend/Daily-Interview-Question/issues/7
+ *            https://juejin.im/post/5c3cc981f265da616a47e028#comment（此链接由于版本不同结果不一样，按照笔记判断即可）
+ * 
+ *      警告：🔴若promise回调中resolve(thenable)：则这里会有一个微任务，创建一个PromiseResolveThenableJob(一个微任务)处理这个thenable.then()（暂停此处的promise链，执行后面其他代码）
+ *                   🔴若promise回调中resolve(promise实例)：则这里创建一个会有2个微任务，先创建一个PromiseResolveThenableJob处理这个promise实例，第二个微任务是promise的then回调再次创建一个微任务（此时暂停第一个微任务就跳出promise链，执行promise链后面的其他代码
+ *                   thenable：指的是含有then方法的对象，
  * 
  * 
  */
+
+
+// 2️⃣：💌
+async function async1() {
+	console.log('async1 start');
+	await async2();
+	console.log('async1 end');
+}
+
+// 等价于
+
+async function async1() {
+	console.log('async1 start');
+	Promise.resolve(async2()).then(() => {
+                console.log('async1 end');
+        })
+}
 
 // 👑👑👑 starting
 // 使用静态Promise.resolve方法
@@ -419,6 +455,14 @@ console.log(checkAge(21))
  * 5  剩余参数：🍖🍖🍖只能是最后一个形参🍖🍖🍖，后面不能再添加参数（syntax error）表示在函数形参中使用（展开运算符 + 数组/对象），实参中使用多个参数
  * 6. 当使用默认参数时，展开运算符复制的是一个副本，赋值之后的变量不会改变原有对象的值
  * 7. 🥯形参使用展开运算符时，返回实参组成的数组
+ * 
+ * 
+ * 🪐逻辑或和逻辑与：
+ *      当操作数是非布尔值时，会返回指定操作数的值，若要返回布尔值，需使用Boolean构造函数或双重非【!!】
+ *      两者会发生短路计算：⛔
+ *          1. 逻辑或：前面的操作数为真值时，就返回该操作数，否则返回第二个操作数（无论第二个操作数真假）
+ *          2. 逻辑与：前面操作数为假值时，就返回该操作数，否则返回第二个操作数（无论第二个操作数真假）
+ * 
  *    
  */
 
