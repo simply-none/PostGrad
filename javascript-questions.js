@@ -137,7 +137,9 @@ sum = {
 /**
  * 
  * 🥀🥀🥀promise: 表示一个异步操作的最终完成/失败，及其结果值
- *    1. promise链式调用中，前面的返回结果将作为后面链式函数的参数，返回一个与原来不同的新的Promise，故而🌴🌴🌴promise注意要有返回值（否则将导致链式调用会并行执行）
+ *    0. promise的构造函数必须要返回一个状态（resolve或reject），不然后面的promise.then不会执行，没有返回状态一直是pending状态（处理中）
+ *    1. promise链式调用中，前面的返回结果将作为后面链式函数的参数，返回一个与原来不同的新的Promise
+ *              ❌此处存疑（先搁置）：故而🌴🌴🌴promise注意要有返回值（否则将导致链式调用会并行执行）
  *    2. then方法的参数是可选的，当无成功回调时，需显式设置为null：then(success_callback, failure_callback)，回调可以使用箭头函数
  *    3. Promise链每个部分一定要有返回值，否则无法传递给链中的下一个调用
  *    4. catch方法：回调失败，当链式中遇到异常时，将寻找下一个reject失败回调函数（failure_callback）或catch方法，调用该方法后，并且还会继续执行链式调用
@@ -228,9 +230,103 @@ sum = {
  *      警告：🔴若promise回调中resolve(thenable)：则这里会有一个微任务，创建一个PromiseResolveThenableJob(一个微任务)处理这个thenable.then()（暂停此处的promise链，执行后面其他代码）
  *                   🔴若promise回调中resolve(promise实例)：则这里创建一个会有2个微任务，先创建一个PromiseResolveThenableJob处理这个promise实例，第二个微任务是promise的then回调再次创建一个微任务（此时暂停第一个微任务就跳出promise链，执行promise链后面的其他代码
  *                   thenable：指的是含有then方法的对象，
+ *            🔴💥promise链若没有完全执行完，而是还有微任务待执行（res(promise实例)，promise.then）或者构造函数没有返回一个状态给下一个链方法，则此时是一直处于pending状态，除非其中的状态改为resolve或reject（链中所有任务全部执行完），当promise没有resolve或reject时，后面的promise链方法（then，catch等）不会执行。而若await语句是一个promise，若该promise没有返回值（状态一直是pending）时，则async函数中await后面的代码是永远不会执行的
+ *            🔴💦async中的await函数等待的是一个异步函数的完成（该语句是一个异步），然后异步函数的结果返回给await（跳出async作为async函数的返回值，并且后面的代码调到了一个微任务队列中）
+ *            🔴当promise在函数内部时，只有函数被调用时才会执行函数内部的promise，记住promise对象返回一个promise实例
+ *            🔴🎨当async函数抛出错误（例如await返回的是一个reject、直接抛出一个错误等），则await后面的代码不会执行，同时以async为链的then等方法也不会执行，而是直接抛出一个错误，除非处理了该错误（用promise的catch方法，或者是try-catch语句）
+ *            🔴当一个promise已经从pending变成了一个已完成状态（resolve，reject），之后是不会再次改变它的状态的，这里注意一些promise调用then方法相当于创建了一个新的promise，而不是之前的promise
+ *            🔴🎁promise的finally方法参数是接收不到promise的结果的，finally方法的返回值在不抛出错误时默认是上一个promise的返回值（也是一个promise实例）       
  * 
+ *            参考： https://juejin.im/post/5e58c618e51d4526ed66b5cf#heading-41
+ *                  https://juejin.im/post/5eda38ebf265da7700281d57（更多例题类型）
  * 
  */
+
+
+// 🔴💥
+async function async1 () {
+  console.log('async1 start');
+  await new Promise(resolve => {
+    console.log('promise1')
+  })  // 由于await等待的promise状态一直是pending，故后面代码不会执行
+  console.log('async1 success');
+  return 'async1 end'
+}
+console.log('srcipt start')
+async1().then(res => console.log(res))    // 由于async函数没有返回值，故这里的then不会执行
+console.log('srcipt end')
+// 'script start'
+// 'async1 start'
+// 'promise1'
+// 'script end'
+
+// 🔴💦
+async function async1 () {
+  console.log('async1 start');
+  await new Promise(resolve => {
+    console.log('promise1')
+    resolve('promise1 resolve')
+  }).then(res => console.log(res))  // micro1
+  console.log('async1 success');    // micro2
+  return 'async1 end'
+}
+console.log('srcipt start')
+async1().then(res => console.log(res))    // micro3
+console.log('srcipt end')
+// 'script start'
+// 'async1 start'
+// 'promise1'
+// 'script end'
+// 'promise1 resolve'
+// 'async1 success'
+// 'async1 end'
+
+// 🔴🎨
+async function async1 () {
+  await async2();
+  console.log('async1');
+  return 'async1 success'
+}
+async function async2 () {
+  return new Promise((resolve, reject) => {
+    console.log('async2')
+    reject('error')
+  })
+}
+async1().then(res => console.log(res))
+// 'async2'
+// Uncaught (in promise) error
+
+// 🔴🎁
+const p1 = new Promise((resolve) => {
+  setTimeout(() => {
+    resolve('resolve3');
+    console.log('timer1')
+  }, 0)
+  resolve('resovle1');
+  resolve('resolve2');
+}).then(res => {
+  console.log(res)
+  setTimeout(() => {
+    console.log(p1)
+  }, 1000)
+}).finally(res => {
+  console.log('finally', res)
+})
+// 'resolve1'
+// 'finally' undefined
+// 'timer1'
+// Promise{<resolved>: undefined}
+
+// 大厂题1：执行分析    ：https://juejin.im/post/5e58c618e51d4526ed66b5cf#heading-41   后面的几道大厂题由于时间原因没做
+const arr = [1, 2, 3]   // 1
+arr.reduce((p, x) => {  // 2，其中p是累加值，x是当前元素值
+  return p.then(() => { // 3，由于下面又是一个返回值，所以为了获取到p的值，执行下面的函数，7，执行一个then，11，执行一个then
+    return new Promise(r => { // 4，8，12
+      setTimeout(() => r(console.log(x)), 1000)   // 5，输出x, 即1，9，输出x，即2，13，输出x，即3
+    })    // 6，此时返回一个promise，状态为fulfilled，值为1，将返回值传给p，10，返回一个promise，值=2，14，promise值为3，到此结束
+  })
+}, Promise.resolve())
 
 
 // 2️⃣：💌
