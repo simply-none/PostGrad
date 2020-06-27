@@ -5,6 +5,23 @@
  */
 
 /**
+ * [隐式转换](https://juejin.im/post/5ef619d9e51d45348675bbc7)：
+ * 1. false：false、undefined、null、NaN、0、""
+ * 2. toNumber: 先valueof，toString（与下面相反）
+ *    1. "0" => 0, "1" => 1, "20" => 20
+ *    2. "" => 0, "tew" => NaN
+ *    3. [] => 0, [10] => 10, [20] => 20, [10, 20] => NaN
+ *    4. function(){} => NaN
+ *    5. {} => NaN
+ *    6. null => 0
+ *    7. undefined => NaN
+ * 3. toString:   先调用toString（若为原始值则return），否则调用valueOf（若为原始值则return），否则抛出typeerror异常
+ *    1. [] => "", [20] => '20', ['tew'] => 'tew', ['10', 'tew'] => '10, tew'
+ *    2. function => '[Object object]'
+ */
+
+
+/**
  * 当以前的版本不能实现某语法时，在MDN每个知识点末尾有一个ployfill语法兼容旧环境
  */
 
@@ -156,6 +173,7 @@ sum = {
  *    8. 为了避免意外，即使一个已经resolve状态的Promise.resolve()，传递给then也会被异步调用
  *    9. 记得使用catch捕获意外的错误发生
  *    10. Promise能够让异步方法像同步方法那样返回值
+ *    11. 当没有执行完整条promise链时，它的状态一直是pending。
  * 
  * 构造：new Promise(function executor(resolve, reject) {...})   
  *      构造函数会立即调用executor函数，若该函数内部抛出错误，Promise状态将变为rejected
@@ -880,7 +898,7 @@ tagMod `my name is ${"xia"} and age is ${23}`
 
 /**
  * 引用：在参数中，若引用的对象相同，则两者相等
- * 函数参数可以是任意个，形参和实参不需要对等，同时若形参数量多余实参，则没有赋值的形参值为undefined
+ * 函数参数可以是任意个，形参和实参不需要对等，同时若形参数量多于实参，则没有赋值的形参值为undefined
  */
 
 function compareMembers(person1, person2 = person) {
